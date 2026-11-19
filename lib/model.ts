@@ -357,11 +357,19 @@ export function secondAction(p: SnapshotProtocol, capital: number, chain: string
 }
 
 /**
- * A protocol's farm plan: seven steps, each an action with a cost and a time, derived from the
- * protocol's own category, first chain, TVL band and age. The dashboard regenerates the same
- * plan from the same figures, so the page and board.json never drift apart.
+ * Which farm-plan skeleton a protocol gets. Usage protocols (exchanges, derivatives,
+ * bridges, payments) are farmed by showing up repeatedly; position protocols (lending,
+ * vaults, staking, yield) are farmed by holding capital in place. The category decides,
+ * never the protocol's name.
  */
-export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
+export function planVariant(p: SnapshotProtocol): 'usage' | 'position' {
+  const c = (p.category ?? '').toLowerCase();
+  if (c.includes('dex') || c.includes('derivative') || c.includes('perpetual') || c.includes('bridge') || c.includes('payment')) return 'usage';
+  return 'position';
+}
+
+/** The position skeleton: set up, deposit, deepen, maintain weekly, hold, claim, log. */
+function positionSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
   const chain = chainOf(p);
   const capital = capitalFor(p);
   const hold = holdDaysFor(age);
@@ -403,6 +411,61 @@ export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
       time: '5 minutes to log each action',
     },
   ];
+}
+
+/** The usage skeleton: test cheap, act, return on separate days, deepen, stay present, claim, log. */
+function usageSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
+  const chain = chainOf(p);
+  const capital = capitalFor(p);
+  const hold = holdDaysFor(age);
+  const gas = gasLabel(chain);
+  return [
+    {
+      text: `Create a fresh wallet only for ${p.name} and run one tiny test transaction first, so a mistake costs cents instead of the full amount`,
+      cost: 'under $1 for the test transaction',
+      time: '10 minutes',
+    },
+    {
+      text: primaryAction(p, capital, chain),
+      cost: `$${capital} of capital plus about ${gas} of gas`,
+      time: '15 minutes to set up',
+    },
+    {
+      text: `Use ${p.name} on three separate days in the first two weeks, because activity snapshots reward repeat days more than one large session`,
+      cost: `about ${gas} of gas per session`,
+      time: '15 minutes per session',
+    },
+    {
+      text: secondAction(p, capital, chain),
+      cost: `about ${gas} of gas for each extra action`,
+      time: '20 minutes spread over the first month',
+    },
+    {
+      text: `Keep a small balance or open position on ${p.name} for at least ${hold} days so the wallet never reads as a one-day visitor`,
+      cost: `the $${capital} stays available in the wallet`,
+      time: `${hold} days of holding`,
+    },
+    {
+      text: `Check the official ${p.name} announcements and points page before you stop, and claim only through links the protocol itself publishes`,
+      cost: 'free to check, and never pay a third party to claim',
+      time: '10 minutes',
+    },
+    {
+      text: `Record every session date, transaction hash and balance for ${p.name} in a farm log, and set a reminder to review the position monthly`,
+      cost: 'nothing beyond the log itself',
+      time: '5 minutes to log each session',
+    },
+  ];
+}
+
+/**
+ * A protocol's farm plan: seven steps from its category's skeleton, each an action with a
+ * cost and a time, derived from the protocol's own category, first chain, TVL band and age.
+ * The dashboard regenerates the same plan from the same figures, so the page and
+ * board.json never drift apart.
+ */
+export function farmSteps(p: SnapshotProtocol, age: number | null): FarmStep[] {
+  return planVariant(p) === 'usage' ? usageSteps(p, age) : positionSteps(p, age);
 }
 
 /** The live-token protocols, by market cap, for the dashboard's Live view. */

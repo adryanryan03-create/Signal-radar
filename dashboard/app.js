@@ -103,11 +103,27 @@
     if (s.length < 20) s = s + ' Keep the position open and review it weekly.';
     return s;
   }
+  function planVariant(p) {
+    var c = (p.category || '').toLowerCase();
+    if (c.indexOf('dex') >= 0 || c.indexOf('derivative') >= 0 || c.indexOf('perpetual') >= 0 || c.indexOf('bridge') >= 0 || c.indexOf('payment') >= 0) return 'usage';
+    return 'position';
+  }
   function farmSteps(p) {
     var chain = chainOf(p);
     var capital = capitalFor(p);
     var hold = holdDaysFor(p.age_days);
     var gas = gasLabel(chain);
+    if (planVariant(p) === 'usage') {
+      return [
+        { text: 'Create a fresh wallet only for ' + p.name + ' and run one tiny test transaction first, so a mistake costs cents instead of the full amount', cost: 'under $1 for the test transaction', time: '10 minutes' },
+        { text: primaryAction(p, capital, chain), cost: '$' + capital + ' of capital plus about ' + gas + ' of gas', time: '15 minutes to set up' },
+        { text: 'Use ' + p.name + ' on three separate days in the first two weeks, because activity snapshots reward repeat days more than one large session', cost: 'about ' + gas + ' of gas per session', time: '15 minutes per session' },
+        { text: secondAction(p, capital, chain), cost: 'about ' + gas + ' of gas for each extra action', time: '20 minutes spread over the first month' },
+        { text: 'Keep a small balance or open position on ' + p.name + ' for at least ' + hold + ' days so the wallet never reads as a one-day visitor', cost: 'the $' + capital + ' stays available in the wallet', time: hold + ' days of holding' },
+        { text: 'Check the official ' + p.name + ' announcements and points page before you stop, and claim only through links the protocol itself publishes', cost: 'free to check, and never pay a third party to claim', time: '10 minutes' },
+        { text: 'Record every session date, transaction hash and balance for ' + p.name + ' in a farm log, and set a reminder to review the position monthly', cost: 'nothing beyond the log itself', time: '5 minutes to log each session' }
+      ].map(stepText);
+    }
     return [
       { text: 'Create a fresh wallet only for ' + p.name + ', back up its seed phrase offline, and never reuse it for other farms', cost: 'no purchase, just the wallet itself', time: '10 minutes' },
       { text: primaryAction(p, capital, chain), cost: '$' + capital + ' of capital plus about ' + gas + ' of gas', time: '15 minutes to set up' },
@@ -340,7 +356,7 @@
         el('div', null,
           el('span', { class: 'sub', text: 'Rank #' + row.rank + ' of ' + DATA.board_size + ' · ' + (row.watchlist ? 'Watchlist' : 'Early find') }),
           el('h2', { text: row.name }),
-          el('p', { class: 'sub', text: (row.category || 'Other') + ' · ' + (row.chains && row.chains.length ? row.chains.join(', ') : 'chain n/a') + ' · listed ' + (row.listed_at || 'n/a') })
+          el('p', { class: 'sub', text: (row.category || 'Other') + ' · ' + (row.chains && row.chains.length ? (row.chains.length > 4 ? row.chains.slice(0, 4).join(', ') + ' +' + (row.chains.length - 4) + ' more' : row.chains.join(', ')) : 'chain n/a') + ' · listed ' + (row.listed_at || 'n/a') })
         ),
         el('button', { class: 'close', type: 'button', text: 'Close', onclick: function () { state.selected = null; writeHash(); render(); } })
       ),
@@ -354,10 +370,10 @@
           el('div', null, el('span', { text: 'Breadth x (' + (row.chains ? row.chains.length : 0) + ' chains)' }), el('b', { text: 'x' + calc.breadth })),
           el('div', { class: 'total' }, el('span', { text: 'Implied launch value' }), el('b', { text: fmtUsd(row.implied_value_usd) }))
         ),
-        el('p', { class: 'sub', text: 'Recomputed live on this page as ' + fmtUsd(calc.value) + (calc.value === row.implied_value_usd ? ' — identical to board.json.' : ' — differs from board.json, so the data would be stale.') + ' Records no token on DefiLlama as of ' + DATA.as_of + '; that is a record, not a guarantee.' })
+        el('p', { class: 'sub', text: 'Recomputed live here as ' + fmtUsd(calc.value) + (calc.value === row.implied_value_usd ? ' — identical to board.json.' : ' — differs from board.json, so the data would be stale.') + ' DefiLlama records no token as of ' + DATA.as_of + '; a record, not a guarantee.' })
       ),
       el('section', { class: 'detail-sec' },
-        el('h3', { text: 'Farm plan — 7 steps' }),
+        el('h3', { text: 'Farm plan — 7 steps · ' + (planVariant(row) === 'usage' ? 'usage-based' : 'position-based') }),
         el('ol', { class: 'steps' }, steps.map(function (s) {
           var at = s.indexOf(' Cost: ');
           var action = at >= 0 ? s.slice(0, at) : s;
